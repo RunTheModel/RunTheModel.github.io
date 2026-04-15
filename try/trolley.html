@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Run the Model -- The Trolley Problem</title>
+<style>
+  :root {
+    --bg: #1a1a2e;
+    --surface: #16213e;
+    --border: #0f3460;
+    --text: #e0e0e0;
+    --dim: #888;
+    --accent: #e94560;
+    --pass: #4caf50;
+    --fail: #e94560;
+    --mono: 'Consolas', 'Monaco', 'Courier New', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 1.8rem; margin-bottom: 0.25rem; }
+  .subtitle { color: var(--dim); margin-bottom: 2rem; font-size: 0.95rem; }
+  .subtitle a { color: var(--accent); text-decoration: none; }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    gap: 2rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .control-group { display: flex; flex-direction: column; gap: 0.5rem; }
+  .control-group label {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--dim);
+  }
+  .toggle-row { display: flex; gap: 0.5rem; }
+  .toggle-btn {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 0.9rem;
+    border-radius: 4px;
+    transition: all 0.15s;
+  }
+  .toggle-btn:hover { border-color: var(--accent); }
+  .toggle-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+  select {
+    padding: 0.5rem;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.9rem;
+    border-radius: 4px;
+    min-width: 280px;
+  }
+
+  /* Panels */
+  .panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 0.5rem 1rem;
+    background: rgba(0,0,0,0.2);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--dim);
+    border-bottom: 1px solid var(--border);
+  }
+  .panel textarea {
+    width: 100%;
+    min-height: 400px;
+    padding: 1rem;
+    background: transparent;
+    color: var(--text);
+    border: none;
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    resize: vertical;
+    outline: none;
+    tab-size: 4;
+  }
+
+  /* Run button */
+  .run-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  #run-btn {
+    padding: 0.75rem 2rem;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 1rem;
+    cursor: pointer;
+    font-weight: 600;
+    transition: opacity 0.15s;
+  }
+  #run-btn:hover { opacity: 0.85; }
+  #run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  #status { color: var(--dim); font-size: 0.9rem; }
+
+  /* Results */
+  #results-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    display: none;
+  }
+  #results-panel .panel-header { display: flex; justify-content: space-between; }
+  #result-badge {
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+  }
+  #result-badge.pass { color: var(--pass); }
+  #result-badge.fail { color: var(--fail); }
+  #results {
+    padding: 1rem;
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+    max-height: 500px;
+    overflow-y: auto;
+    color: var(--text);
+  }
+
+  /* Claim description */
+  #claim-desc {
+    background: rgba(233, 69, 96, 0.1);
+    border-left: 3px solid var(--accent);
+    padding: 0.75rem 1rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+    border-radius: 0 4px 4px 0;
+  }
+
+  /* Tooltip */
+  #tooltip {
+    position: fixed;
+    background: #222;
+    color: #e0e0e0;
+    border: 1px solid var(--accent);
+    padding: 0.5rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    max-width: 360px;
+    line-height: 1.5;
+    pointer-events: none;
+    z-index: 100;
+    display: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  }
+  #tooltip .tt-term {
+    font-family: var(--mono);
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 0.8rem;
+    margin-bottom: 0.25rem;
+  }
+
+  /* Cheat sheet */
+  .cheatsheet {
+    margin-bottom: 1.5rem;
+  }
+  .cheatsheet summary {
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--accent);
+    padding: 0.5rem 0;
+    user-select: none;
+  }
+  .cheatsheet summary:hover { text-decoration: underline; }
+  .cheatsheet-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-top: 0.75rem;
+  }
+  .cheat-section h3 {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--dim);
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.25rem;
+  }
+  .cheat-section table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+  }
+  .cheat-section td {
+    padding: 0.2rem 0.5rem;
+    vertical-align: top;
+  }
+  .cheat-section td:first-child {
+    font-family: var(--mono);
+    color: var(--accent);
+    white-space: nowrap;
+    width: 140px;
+  }
+
+  /* Annotated results */
+  .result-section {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .result-section:last-child { border-bottom: none; }
+  .result-section h4 {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--dim);
+    margin-bottom: 0.5rem;
+  }
+  .result-section .annotation {
+    font-size: 0.8rem;
+    color: var(--dim);
+    font-style: italic;
+    margin-bottom: 0.5rem;
+  }
+  .result-section pre {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+    margin: 0;
+  }
+  .trace-step {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .trace-step:last-child { border-bottom: none; }
+  .trace-step-header {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    color: var(--accent);
+    margin-bottom: 0.25rem;
+  }
+  .trace-step-state {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    padding-left: 1rem;
+    color: var(--text);
+  }
+  .trace-step-note {
+    font-size: 0.8rem;
+    color: var(--dim);
+    font-style: italic;
+    padding-left: 1rem;
+    margin-top: 0.25rem;
+  }
+  .result-verdict {
+    font-size: 1.1rem;
+    font-weight: 700;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .result-verdict.pass { color: var(--pass); border-left: 4px solid var(--pass); }
+  .result-verdict.fail { color: var(--fail); border-left: 4px solid var(--fail); }
+  .result-stats {
+    font-size: 0.8rem;
+    color: var(--dim);
+    padding: 0.5rem 1rem;
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .panels { grid-template-columns: 1fr; }
+    .cheatsheet-grid { grid-template-columns: 1fr; }
+    body { padding: 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<h1>The Trolley Problem in TLA+</h1>
+<p class="subtitle">
+  From <a href="https://runthemodel.substack.com/">Run the Model</a>.
+  No install needed -- TLC runs in the cloud.
+</p>
+
+<div class="controls">
+  <div class="control-group">
+    <label>The lever</label>
+    <div class="toggle-row">
+      <button class="toggle-btn active" onclick="setModel('working', this)">Works</button>
+      <button class="toggle-btn" onclick="setModel('broken', this)">Might stick</button>
+      <button class="toggle-btn" onclick="setModel('collatz', this)">Collatz</button>
+    </div>
+  </div>
+  <div class="control-group">
+    <label>What do you want to check?</label>
+    <select id="claim-select" onchange="setClaim(this.value)"></select>
+  </div>
+</div>
+
+<details class="cheatsheet">
+<summary>TLA+ cheat sheet</summary>
+<div class="cheatsheet-grid">
+  <div class="cheat-section">
+    <h3>Structure</h3>
+    <table>
+      <tr><td>---- MODULE X ----</td><td>Every .tla file is a module. Name must match the filename.</td></tr>
+      <tr><td>EXTENDS Integers</td><td>Import another module. Integers gives you +, -, *, comparisons.</td></tr>
+      <tr><td>VARIABLES x, y</td><td>Declare state variables. A "state" is one assignment of values to all variables.</td></tr>
+      <tr><td>Foo ==</td><td>Define an operator (like a function). <code>Foo == x > 0</code> means Foo is true when x is positive.</td></tr>
+      <tr><td>Init ==</td><td>The starting state. Constrains what values variables can begin with.</td></tr>
+      <tr><td>Next ==</td><td>What can happen in one step. Usually a disjunction (\/) of named actions.</td></tr>
+      <tr><td>Spec ==</td><td>The full specification. Combines Init, Next, and optionally fairness.</td></tr>
+      <tr><td>====</td><td>End of module.</td></tr>
+    </table>
+  </div>
+  <div class="cheat-section">
+    <h3>Logic</h3>
+    <table>
+      <tr><td>/\</td><td>AND -- both sides must be true.</td></tr>
+      <tr><td>\/</td><td>OR -- at least one side must be true.</td></tr>
+      <tr><td>=></td><td>Implies. "A => B" means if A then B.</td></tr>
+      <tr><td>~</td><td>NOT.</td></tr>
+      <tr><td>#</td><td>Not equal.</td></tr>
+      <tr><td>\in</td><td>Set membership. <code>x \in {1,2,3}</code></td></tr>
+      <tr><td>\notin</td><td>Not in the set.</td></tr>
+      <tr><td>IF P THEN A ELSE B</td><td>Conditional expression.</td></tr>
+      <tr><td>CASE P -> A [] Q -> B</td><td>Multi-branch conditional.</td></tr>
+    </table>
+  </div>
+  <div class="cheat-section">
+    <h3>State and change</h3>
+    <table>
+      <tr><td>x'</td><td>The value of x in the <em>next</em> state. <code>x' = x + 1</code> means x increments.</td></tr>
+      <tr><td>UNCHANGED x</td><td>This action does not change x. Equivalent to <code>x' = x</code>.</td></tr>
+      <tr><td>UNCHANGED &lt;&lt;x, y&gt;&gt;</td><td>Neither x nor y changes in this step.</td></tr>
+      <tr><td>[][Next]_vars</td><td>Every step either satisfies Next or changes nothing (stuttering is allowed).</td></tr>
+      <tr><td>&lt;&lt;a, b, c&gt;&gt;</td><td>A tuple. Used to group variables.</td></tr>
+    </table>
+  </div>
+  <div class="cheat-section">
+    <h3>The .cfg file</h3>
+    <table>
+      <tr><td>SPECIFICATION Spec</td><td>Which operator in the .tla defines the system. Usually "Spec".</td></tr>
+      <tr><td>INVARIANT Foo</td><td>Check operator Foo in every reachable state. Fail = found a counterexample.</td></tr>
+      <tr><td>PROPERTY Foo</td><td>Check temporal property Foo over entire behaviors (liveness).</td></tr>
+      <tr><td>CONSTRAINT Foo</td><td>Only explore states where Foo is true. Limits the search space.</td></tr>
+    </table>
+    <h3>Temporal (advanced)</h3>
+    <table>
+      <tr><td>&lt;&gt;(P)</td><td>Eventually P becomes true.</td></tr>
+      <tr><td>[](P)</td><td>P is always true (in every state).</td></tr>
+      <tr><td>WF_vars(Action)</td><td>Weak fairness -- if Action stays enabled, it must eventually happen.</td></tr>
+    </table>
+  </div>
+</div>
+</details>
+
+<div id="claim-desc"></div>
+
+<div class="panels">
+  <div class="panel">
+    <div class="panel-header">Model (.tla)</div>
+    <textarea id="tla-source" spellcheck="false"></textarea>
+  </div>
+  <div class="panel">
+    <div class="panel-header">Config (.cfg)</div>
+    <textarea id="cfg-source" spellcheck="false"></textarea>
+  </div>
+</div>
+
+<div class="run-row">
+  <button id="run-btn" onclick="runModel()">Check this claim</button>
+  <span id="status"></span>
+</div>
+
+<div id="results-panel">
+  <div class="panel-header">
+    <span>TLC Output</span>
+    <span id="result-badge"></span>
+  </div>
+  <div id="results"></div>
+</div>
+
+<script>
+// -- Embedded models --
+
+const MODELS = {
+working: `---- MODULE Trolley ----
+\\* The classical trolley problem, with one piece of physics the philosophers
+\\* usually leave out: the trolley is moving. There is a moment -- when it
+\\* passes the switch -- after which the lever no longer matters. You can
+\\* still pull it. It just doesn't do anything anymore.
+\\*
+\\* In this model, "doing nothing" is not a separate choice. It is simply
+\\* the path where you didn't pull the lever in time. The trolley does what
+\\* it was always going to do.
+
+EXTENDS Integers
+
+VARIABLES
+    position,    \\* "Approaching" | "PastSwitch" | "Arrived"
+    lever,       \\* "NotPulled" | "PulledInTime" | "PulledTooLate"
+    casualties   \\* 0..5
+
+vars == <<position, lever, casualties>>
+
+Init ==
+    /\\ position = "Approaching"
+    /\\ lever = "NotPulled"
+    /\\ casualties = 0
+
+PullInTime ==
+    /\\ position = "Approaching"
+    /\\ lever = "NotPulled"
+    /\\ lever' = "PulledInTime"
+    /\\ UNCHANGED <<position, casualties>>
+
+PullTooLate ==
+    /\\ position = "PastSwitch"
+    /\\ lever = "NotPulled"
+    /\\ lever' = "PulledTooLate"
+    /\\ UNCHANGED <<position, casualties>>
+
+TrolleyPassesSwitch ==
+    /\\ position = "Approaching"
+    /\\ position' = "PastSwitch"
+    /\\ UNCHANGED <<lever, casualties>>
+
+TrolleyArrives ==
+    /\\ position = "PastSwitch"
+    /\\ position' = "Arrived"
+    /\\ casualties' = IF lever = "PulledInTime" THEN 1 ELSE 5
+    /\\ UNCHANGED lever
+
+Next ==
+    \\/ PullInTime
+    \\/ PullTooLate
+    \\/ TrolleyPassesSwitch
+    \\/ TrolleyArrives
+
+Spec == Init /\\ [][Next]_vars
+
+NobodyEverDies == casualties = 0
+CasualtiesNeverReachSix == casualties < 6
+CasualtiesAtMostOne == casualties <= 1
+LeverNeverPulled == lever \\notin {"PulledInTime", "PulledTooLate"}
+
+====`,
+
+broken: `---- MODULE TrolleyBroken ----
+\\* The trolley problem, with one addition the philosophy literature
+\\* always assumes away: the lever might be broken.
+\\*
+\\* In this model, the switch can stick halfway. When it does, the trolley
+\\* splits in two and runs down BOTH tracks. Six casualties. The state
+\\* that was structurally unreachable in part one becomes reachable in
+\\* part two. Same model, same actions, same invariants. One added
+\\* failure mode. Worse outcomes than either ending the philosophers
+\\* ever considered.
+
+EXTENDS Integers
+
+VARIABLES
+    position,     \\* "Approaching" | "PastSwitch" | "Arrived"
+    lever,        \\* "NotPulled" | "PulledInTime" | "PulledTooLate" | "TrolleySplits"
+    leverHealth,  \\* "Working" | "Sticky" -- set nondeterministically at init
+    casualties    \\* 0..6
+
+vars == <<position, lever, leverHealth, casualties>>
+
+Init ==
+    /\\ position = "Approaching"
+    /\\ lever = "NotPulled"
+    /\\ leverHealth \\in {"Working", "Sticky"}
+    /\\ casualties = 0
+
+PullInTime ==
+    /\\ position = "Approaching"
+    /\\ lever = "NotPulled"
+    /\\ lever' = IF leverHealth = "Working" THEN "PulledInTime" ELSE "TrolleySplits"
+    /\\ UNCHANGED <<position, leverHealth, casualties>>
+
+PullTooLate ==
+    /\\ position = "PastSwitch"
+    /\\ lever = "NotPulled"
+    /\\ lever' = "PulledTooLate"
+    /\\ UNCHANGED <<position, leverHealth, casualties>>
+
+TrolleyPassesSwitch ==
+    /\\ position = "Approaching"
+    /\\ position' = "PastSwitch"
+    /\\ UNCHANGED <<lever, leverHealth, casualties>>
+
+TrolleyArrives ==
+    /\\ position = "PastSwitch"
+    /\\ position' = "Arrived"
+    /\\ casualties' = CASE lever = "PulledInTime" -> 1
+                       [] lever = "TrolleySplits"  -> 6
+                       [] OTHER                  -> 5
+    /\\ UNCHANGED <<lever, leverHealth>>
+
+Next ==
+    \\/ PullInTime
+    \\/ PullTooLate
+    \\/ TrolleyPassesSwitch
+    \\/ TrolleyArrives
+
+Spec == Init /\\ [][Next]_vars
+
+CasualtiesNeverReachSix == casualties < 6
+CasualtiesAtMostOne == casualties <= 1
+PullInTimeMeansMinimum ==
+    (lever = "PulledInTime" /\\ position = "Arrived") => casualties = 1
+LeverNeverSticks == lever # "TrolleySplits"
+NotPullingBoundsTheBlastRadius ==
+    (lever \\notin {"PulledInTime", "TrolleySplits"}) => casualties <= 5
+SixDeathsOnlyComeFromPulling ==
+    casualties = 6 => lever = "TrolleySplits"
+
+====`,
+
+collatz: `---- MODULE Collatz ----
+\\* Collatz conjecture: start with any n > 1.
+\\* If even, halve it. If odd, triple and add one.
+\\* Does every sequence reach 1?
+\\* If TLC finds a violation of Terminates, collect your Fields Medal.
+EXTENDS Integers
+
+VARIABLE n
+
+Init == n \\in 2..1000
+
+Next == /\\ n > 1
+        /\\ n' = IF n % 2 = 0 THEN n \\div 2 ELSE 3 * n + 1
+
+Spec == Init /\\ [][Next]_n /\\ WF_n(Next)
+
+Bound == n <= 100000
+
+Terminates == <>(n = 1)
+
+====`
+};
+
+// -- Claims per model --
+
+const CLAIMS = {
+  working: [
+    {
+      id: 'NobodyEverDies',
+      label: '"Nobody ever dies"',
+      desc: 'Can the trolley reach the end without killing anyone? TLC will FAIL this -- someone always dies.',
+      cfg: 'SPECIFICATION Spec\nINVARIANT NobodyEverDies',
+      expect: 'fail'
+    },
+    {
+      id: 'CasualtiesNeverReachSix',
+      label: '"You can\'t kill all six"',
+      desc: 'Is there any path where all six people die? TLC will PASS this -- killing everybody is structurally unreachable.',
+      cfg: 'SPECIFICATION Spec\nINVARIANT CasualtiesNeverReachSix',
+      expect: 'pass'
+    },
+    {
+      id: 'CasualtiesAtMostOne',
+      label: '"At most one person dies"',
+      desc: 'Can you guarantee at most one casualty? TLC will FAIL this -- the path where you don\'t pull in time leads to five.',
+      cfg: 'SPECIFICATION Spec\nINVARIANT CasualtiesAtMostOne',
+      expect: 'fail'
+    },
+    {
+      id: 'LeverNeverPulled',
+      label: '"The lever is never pulled"',
+      desc: 'The deontological position: never touch the lever. TLC will FAIL this -- pulling is always reachable. TLC does not enforce your morality unless you encode it in the spec.',
+      cfg: 'SPECIFICATION Spec\nINVARIANT LeverNeverPulled',
+      expect: 'fail'
+    },
+  ],
+  broken: [
+    {
+      id: 'CasualtiesNeverReachSix',
+      label: '"You can\'t kill all six" (was PASS before)',
+      desc: 'The same claim that PASSED in part one. Now TLC FAILS it. The sticky lever opens a path to six casualties that didn\'t exist when the lever always worked.',
+      cfg: 'SPECIFICATION Spec\nINVARIANT CasualtiesNeverReachSix',
+      expect: 'fail'
+    },
+    {
+      id: 'CasualtiesAtMostOne',
+      label: '"At most one person dies"',
+      desc: 'TLC FAILS this even harder. Now there are TWO ways to violate it: not pulling in time (5) or pulling a sticky lever (6).',
+      cfg: 'SPECIFICATION Spec\nINVARIANT CasualtiesAtMostOne',
+      expect: 'fail'
+    },
+    {
+      id: 'PullInTimeMeansMinimum',
+      label: '"If I pulled in time, casualties are minimized"',
+      desc: 'The conditional invariant. TLC PASSES this. Whenever lever = PulledInTime, the mechanism cooperated and the outcome is the one you wanted. The strongest claim you can make is conditional on the mechanism working.',
+      cfg: 'SPECIFICATION Spec\nINVARIANT PullInTimeMeansMinimum',
+      expect: 'pass'
+    },
+    {
+      id: 'LeverNeverSticks',
+      label: '"The lever never sticks"',
+      desc: 'The assumption philosophy makes. TLC FAILS this. The sticky world is reachable as soon as you admit it as a possibility.',
+      cfg: 'SPECIFICATION Spec\nINVARIANT LeverNeverSticks',
+      expect: 'fail'
+    },
+    {
+      id: 'NotPullingBoundsTheBlastRadius',
+      label: '"Not pulling keeps casualties at five or fewer"',
+      desc: 'TLC PASSES this. In a world where the lever might fail, not pulling is the only way to guarantee you don\'t kill everyone. The reliability engineer\'s argument: minimax says don\'t pull.',
+      cfg: 'SPECIFICATION Spec\nINVARIANT NotPullingBoundsTheBlastRadius',
+      expect: 'pass'
+    },
+    {
+      id: 'SixDeathsOnlyComeFromPulling',
+      label: '"Six deaths can only happen if you pulled"',
+      desc: 'TLC PASSES this. Inaction cannot cause six deaths. Pulling can. The worst case of action is strictly worse than the worst case of inaction.',
+      cfg: 'SPECIFICATION Spec\nINVARIANT SixDeathsOnlyComeFromPulling',
+      expect: 'pass'
+    },
+  ],
+  collatz: [
+    {
+      id: 'Terminates',
+      label: '"Every sequence reaches 1" (2..1000)',
+      desc: 'The Collatz conjecture. TLC checks all starting values from 2 to 1000. If any sequence fails to reach 1, you just solved an open problem in mathematics.',
+      cfg: 'SPECIFICATION Spec\nCONSTRAINT Bound\nPROPERTY Terminates',
+      expect: 'pass'
+    },
+  ]
+};
+
+// -- State --
+
+let currentModel = 'working';
+let currentClaim = null;
+
+// runthemodel /tla endpoint on Azure Container Apps
+const API_URL = 'https://rtm-app.salmonfield-c02b39a2.eastus.azurecontainerapps.io/tla';
+
+function setModel(model, clickedBtn) {
+  currentModel = model;
+
+  // Update toggle buttons
+  document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+  if (clickedBtn) clickedBtn.classList.add('active');
+
+  // Update TLA source
+  document.getElementById('tla-source').value = MODELS[model];
+
+  // Update claim dropdown
+  const select = document.getElementById('claim-select');
+  select.innerHTML = '';
+  CLAIMS[model].forEach((c, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = c.label;
+    select.appendChild(opt);
+  });
+
+  setClaim(0);
+}
+
+function setClaim(idx) {
+  idx = parseInt(idx);
+  currentClaim = CLAIMS[currentModel][idx];
+  document.getElementById('cfg-source').value = currentClaim.cfg;
+  document.getElementById('claim-desc').textContent = currentClaim.desc;
+}
+
+function parseStateBlocks(tlcOutput) {
+  // Parse TLC output into [{header: "State 1: <Initial predicate>", state: "/\\ x = 1\n/\\ y = 2"}, ...]
+  var blocks = [];
+  var lines = tlcOutput.split('\n');
+  var current = null;
+
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i];
+    var m = line.match(/^State (\d+): <(.+?)>/);
+    if (m) {
+      if (current) blocks.push(current);
+      var actionName = m[2].replace(/ line \d+.*/, '');
+      current = {
+        header: 'Step ' + m[1] + ': ' + actionName,
+        state: ''
+      };
+      continue;
+    }
+    if (line.match(/^Stuttering/)) {
+      if (current) blocks.push(current);
+      current = { header: 'Stuttering (system idles forever)', state: '' };
+      continue;
+    }
+    if (current && (line.startsWith('/\\') || line.startsWith('  '))) {
+      current.state += (current.state ? '\n' : '') + line;
+    }
+  }
+  if (current) blocks.push(current);
+  return blocks;
+}
+
+async function runModel() {
+  const btn = document.getElementById('run-btn');
+  const status = document.getElementById('status');
+  const resultsPanel = document.getElementById('results-panel');
+  const resultsEl = document.getElementById('results');
+  const badge = document.getElementById('result-badge');
+
+  btn.disabled = true;
+  status.textContent = 'Running TLC...';
+  resultsPanel.style.display = 'none';
+
+  const tla = document.getElementById('tla-source').value;
+  const cfg = document.getElementById('cfg-source').value;
+
+  try {
+    const resp = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tla_source: tla, cfg_source: cfg })
+    });
+
+    const data = await resp.json();
+
+    resultsPanel.style.display = 'block';
+    badge.className = '';
+    resultsEl.innerHTML = '';
+
+    // Verdict
+    const isPassing = data.result === 'PASS';
+    const isFail = data.result === 'INVARIANT_VIOLATED' || data.result === 'LIVENESS_VIOLATED' || data.result === 'DEADLOCK';
+
+    if (isPassing) {
+      badge.textContent = 'PASS';
+      badge.classList.add('pass');
+    } else if (isFail) {
+      badge.textContent = 'FAIL';
+      badge.classList.add('fail');
+    } else {
+      badge.textContent = data.result;
+      badge.classList.add('fail');
+    }
+
+    // Verdict section
+    const verdictDiv = document.createElement('div');
+    verdictDiv.className = 'result-verdict ' + (isPassing ? 'pass' : 'fail');
+    if (isPassing) {
+      verdictDiv.textContent = 'TLC checked every reachable state. The claim holds in all of them.';
+    } else if (data.result === 'INVARIANT_VIOLATED') {
+      verdictDiv.textContent = 'TLC found a state where your claim is false. The trace below shows how it got there.';
+    } else if (data.result === 'LIVENESS_VIOLATED') {
+      verdictDiv.textContent = 'TLC found a behavior where the temporal property is never satisfied.';
+    } else if (data.result === 'DEADLOCK') {
+      verdictDiv.textContent = 'TLC found a state where no action is enabled -- the system is stuck.';
+    } else if (data.result === 'TIMEOUT') {
+      verdictDiv.textContent = 'TLC ran out of time before finishing. The model may be too large.';
+    } else if (data.result === 'PARSE_ERROR') {
+      verdictDiv.textContent = 'TLC could not parse the TLA+ file. Check for syntax errors.';
+    } else {
+      verdictDiv.textContent = data.message;
+    }
+    resultsEl.appendChild(verdictDiv);
+
+    // Stats
+    if (data.states_distinct) {
+      const statsDiv = document.createElement('div');
+      statsDiv.className = 'result-stats';
+      statsDiv.textContent = `TLC explored ${data.states_distinct.toLocaleString()} distinct states.`;
+      if (isPassing) {
+        statsDiv.textContent += ' Every single one satisfied the claim.';
+      }
+      resultsEl.appendChild(statsDiv);
+    }
+
+    // Trace (counterexample)
+    if (data.tlc_output && isFail) {
+      const traceSection = document.createElement('div');
+      traceSection.className = 'result-section';
+
+      const traceTitle = document.createElement('h4');
+      traceTitle.textContent = 'Counterexample';
+      traceSection.appendChild(traceTitle);
+
+      const traceNote = document.createElement('div');
+      traceNote.className = 'annotation';
+      if (data.result === 'INVARIANT_VIOLATED') {
+        traceNote.textContent = 'This is the shortest path TLC found from the initial state to a state where ' +
+          (data.invariant || 'the claim') + ' is false. Read it like a story: each step is one action firing.';
+      } else if (data.result === 'DEADLOCK') {
+        traceNote.textContent = 'This is the path that led to the stuck state. The last state has no enabled actions.';
+      } else {
+        traceNote.textContent = 'This behavior violates the temporal property. The system never reaches the required condition.';
+      }
+      traceSection.appendChild(traceNote);
+
+      // Parse states from raw TLC output
+      const stateBlocks = parseStateBlocks(data.tlc_output);
+      stateBlocks.forEach(function(block, idx) {
+        const stepDiv = document.createElement('div');
+        stepDiv.className = 'trace-step';
+
+        const header = document.createElement('div');
+        header.className = 'trace-step-header';
+        header.textContent = block.header;
+        stepDiv.appendChild(header);
+
+        if (block.state) {
+          const stateDiv = document.createElement('div');
+          stateDiv.className = 'trace-step-state';
+          stateDiv.textContent = block.state;
+          stepDiv.appendChild(stateDiv);
+        }
+
+        // Add annotation for first and last steps
+        if (idx === 0) {
+          const note = document.createElement('div');
+          note.className = 'trace-step-note';
+          note.textContent = 'The initial state -- where everything starts.';
+          stepDiv.appendChild(note);
+        } else if (idx === stateBlocks.length - 1 && data.result === 'INVARIANT_VIOLATED') {
+          const note = document.createElement('div');
+          note.className = 'trace-step-note';
+          note.textContent = 'This is the state where the claim is false. Look at the variable values to see why.';
+          stepDiv.appendChild(note);
+        }
+
+        traceSection.appendChild(stepDiv);
+      });
+
+      resultsEl.appendChild(traceSection);
+    }
+
+    // Raw output (collapsible)
+    if (data.tlc_output) {
+      const rawSection = document.createElement('details');
+      rawSection.className = 'result-section';
+      const rawSummary = document.createElement('summary');
+      rawSummary.style.cssText = 'cursor:pointer; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; color:' + 'var(--dim)';
+      rawSummary.textContent = 'Raw TLC output';
+      rawSection.appendChild(rawSummary);
+      const rawPre = document.createElement('pre');
+      rawPre.textContent = data.tlc_output;
+      rawPre.style.marginTop = '0.5rem';
+      rawSection.appendChild(rawPre);
+      resultsEl.appendChild(rawSection);
+    }
+
+    status.textContent = '';
+
+  } catch (err) {
+    status.textContent = 'Error: ' + err.message;
+    resultsPanel.style.display = 'none';
+  }
+
+  btn.disabled = false;
+}
+
+// Init
+setModel('working');
+
+// -- Glossary tooltip --
+
+const GLOSSARY = {
+  // Operators
+  '/\\': 'Conjunction (AND). Both sides must be true for this step to apply.',
+  '\\/': 'Disjunction (OR). At least one side must be true.',
+  'UNCHANGED': 'These variables keep their current value in this step. Required because TLA+ is explicit about every variable in every action.',
+  '\\in': 'Set membership. "x \\in S" means x is some element of S. TLC tries every element.',
+  '\\notin': 'Not a member of the set.',
+  '#': 'Not equal to.',
+  '=>': 'Implication. "A => B" means if A is true then B must also be true.',
+  '<>': 'Eventually. "<>(P)" means P must become true at some point in the future.',
+  '[]': 'Always. "[](P)" means P must be true in every state of every behavior.',
+  '[][': '"[][Next]_vars" means every step either satisfies Next or leaves vars unchanged (stuttering).',
+  'WF_': 'Weak fairness. If this action stays continuously enabled, it must eventually happen. Prevents the system from ignoring an enabled action forever.',
+  'SF_': 'Strong fairness. If this action is enabled infinitely often (not necessarily continuously), it must eventually happen.',
+  'CASE': 'Case expression. Like a switch statement -- picks the branch whose guard is true.',
+  'OTHER': 'The default branch in a CASE expression. Matches when no other guard is true.',
+  'IF': 'Conditional. "IF P THEN A ELSE B" -- evaluates to A when P is true, B otherwise.',
+  'THEN': 'The true-branch of an IF expression.',
+  'ELSE': 'The false-branch of an IF expression.',
+  '\\div': 'Integer division (rounds toward zero).',
+
+  // Declarations
+  'EXTENDS': 'Imports another TLA+ module. "EXTENDS Integers" gives you arithmetic.',
+  'EXTENDS Integers': 'Imports the Integers module -- adds +, -, *, \\div, %, <, >, comparisons.',
+  'VARIABLES': 'Declares the state variables. Every state is an assignment of values to these variables.',
+  'VARIABLE': 'Declares a state variable.',
+  'vars': 'By convention, a tuple of all variables. Used in the Spec formula and UNCHANGED.',
+
+  // Structure
+  'Init': 'The initial state predicate. Defines what the system looks like before anything happens.',
+  'Next': 'The next-state relation. A disjunction of all possible actions -- any one can fire in any step.',
+  'Spec': 'The complete system specification. Typically "Init /\\ [][Next]_vars" plus fairness constraints.',
+
+  // Config keywords -- teach structure, not semantics
+  'SPECIFICATION': 'Tells TLC which operator in the .tla file defines the system behavior. The name after SPECIFICATION must match an operator defined in the module (usually "Spec").',
+  'INVARIANT': 'Names an operator from the .tla file that TLC will check in every reachable state. If any state makes it false, TLC stops and shows you how it got there.',
+  'PROPERTY': 'Names an operator from the .tla file that TLC will check as a temporal (liveness) property -- checked over entire behaviors, not single states. The operator must be defined in the .tla file.',
+  'CONSTRAINT': 'Names a predicate from the .tla file that limits the state space TLC explores. TLC discards any state where this predicate is false. The name must match an operator in the module.',
+
+  // Model-specific names -- explain what they reference
+  'NobodyEverDies': 'An operator defined in the .tla file. Look for "NobodyEverDies ==" to see the actual claim.',
+  'CasualtiesNeverReachSix': 'An operator defined in the .tla file. Look for "CasualtiesNeverReachSix ==" to see the actual claim.',
+  'CasualtiesAtMostOne': 'An operator defined in the .tla file. Look for "CasualtiesAtMostOne ==" to see the actual claim.',
+  'LeverNeverPulled': 'An operator defined in the .tla file. Look for "LeverNeverPulled ==" to see the actual claim.',
+  'PullInTimeMeansMinimum': 'An operator defined in the .tla file. Look for "PullInTimeMeansMinimum ==" to see the actual claim.',
+  'LeverNeverSticks': 'An operator defined in the .tla file. Look for "LeverNeverSticks ==" to see the actual claim.',
+  'NotPullingBoundsTheBlastRadius': 'An operator defined in the .tla file. Look for "NotPullingBoundsTheBlastRadius ==" to see the actual claim.',
+  'SixDeathsOnlyComeFromPulling': 'An operator defined in the .tla file. Look for "SixDeathsOnlyComeFromPulling ==" to see the actual claim.',
+  'Terminates': 'An operator defined in the .tla file. Look for "Terminates ==" to see the actual claim. The .cfg just tells TLC to check it -- the definition lives in the module.',
+  'Bound': 'References a predicate defined in the .tla file. Look for "Bound ==" to see what it constrains. The .cfg just tells TLC to use it as a state space limit.',
+  'Spec': 'References the specification operator defined in the .tla file. Look for "Spec ==" -- it typically combines Init (starting state) with Next (allowed transitions).',
+};
+
+const tooltip = document.createElement('div');
+tooltip.id = 'tooltip';
+document.body.appendChild(tooltip);
+
+function showTooltip(term, explanation, x, y) {
+  tooltip.innerHTML = '<div class="tt-term">' + term.replace(/</g,'&lt;') + '</div>' + explanation;
+  tooltip.style.display = 'block';
+  // Position: above the selection, centered
+  const rect = tooltip.getBoundingClientRect();
+  let left = x - rect.width / 2;
+  let top = y - rect.height - 10;
+  // Keep on screen
+  if (left < 8) left = 8;
+  if (left + rect.width > window.innerWidth - 8) left = window.innerWidth - rect.width - 8;
+  if (top < 8) top = y + 20; // flip below if no room above
+  tooltip.style.left = left + 'px';
+  tooltip.style.top = top + 'px';
+}
+
+function hideTooltip() {
+  tooltip.style.display = 'none';
+}
+
+function lookupSelection(text) {
+  text = text.trim();
+  if (!text || text.length > 80) return null;
+
+  // Exact match
+  if (GLOSSARY[text]) return { term: text, explanation: GLOSSARY[text] };
+
+  // Try without trailing punctuation
+  const stripped = text.replace(/[,.\s]+$/, '');
+  if (GLOSSARY[stripped]) return { term: stripped, explanation: GLOSSARY[stripped] };
+
+  // Prefix match for things like "WF_n(Next)" -> "WF_"
+  for (const key of Object.keys(GLOSSARY)) {
+    if (key.endsWith('_') && text.startsWith(key)) {
+      return { term: key, explanation: GLOSSARY[key] };
+    }
+  }
+
+  return null;
+}
+
+// Attach to both textareas directly
+['tla-source', 'cfg-source'].forEach(function(id) {
+  var ta = document.getElementById(id);
+
+  ta.addEventListener('mouseup', function(e) {
+    var self = this;
+    var mx = e.clientX, my = e.clientY;
+    setTimeout(function() {
+      var start = self.selectionStart;
+      var end = self.selectionEnd;
+      if (start === end) { hideTooltip(); return; }
+      var text = self.value.substring(start, end);
+      var match = lookupSelection(text);
+      if (match) {
+        showTooltip(match.term, match.explanation, mx, my);
+      } else {
+        hideTooltip();
+      }
+    }, 10);
+  });
+
+  ta.addEventListener('mousedown', function() {
+    hideTooltip();
+  });
+});
+</script>
+
+</body>
+</html>
